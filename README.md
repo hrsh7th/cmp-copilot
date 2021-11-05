@@ -15,9 +15,11 @@ cmp.setup {
 
 1. This is experimental product.
 
-I guess copilot.vim is early stage preview.
-So this plugin might be corrupt if the breaking changes are applied to copilot.vim.
+It depends on the internal implementation of copilot.vim.
+Therefore, it can be corrupted if copilot.vim had modified.
+
 
 2. I don't support to use this for now
 
 The reason I created this was just because I was interested it.
+
