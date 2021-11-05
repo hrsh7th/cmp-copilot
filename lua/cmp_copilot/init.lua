@@ -1,45 +1,56 @@
 local source = {}
 
 source.new = function()
-  return setmetatable({}, { __index = source })
+  return setmetatable({
+    timer = vim.loop.new_timer()
+  }, { __index = source })
 end
 
 source.get_trigger_characters = function()
   return { ' ' }
 end
 
-source.complete = function(self, _, callback)
-  vim.fn['copilot#Schedule']()
-  local timer = vim.loop.new_timer()
-  timer:start(200, 200, vim.schedule_wrap(function()
-    local ok = true
-    ok = ok and vim.g._copilot_completion
-    ok = ok and vim.g._copilot_last_completion
-    ok = ok and vim.g._copilot_completion.id == vim.g._copilot_last_completion.id
-    ok = ok and vim.b._copilot_completion
-    ok = ok and vim.b._copilot_completion.text
-    ok = ok and #vim.b._copilot_completion.text > 0
-    if ok then
-      timer:close()
+source.complete = function(self, params, callback)
+  self.timer:stop()
+  self.timer:start(0, 200, vim.schedule_wrap(function()
+    local ready = true
+    ready = ready and vim.g._copilot_completion
+    ready = ready and vim.g._copilot_last_completion
+    ready = ready and vim.g._copilot_completion.id == vim.g._copilot_last_completion.id
+    ready = ready and vim.tbl_contains({ 'success', 'error' }, vim.g._copilot_last_completion.status)
+    ready = ready and vim.g._copilot_last_completion.result
+    ready = ready and vim.g._copilot_last_completion.result.completions
+    ready = ready and #vim.g._copilot_last_completion.result.completions > 0
+    if ready then
+      self.timer:stop()
+
+      if vim.g._copilot_last_completion.status == 'error' then
+        return callback({ isIncomplete = true })
+      end
+
       callback({
         isIncomplete = true,
         items = vim.tbl_map(function(item)
+          item = vim.tbl_extend('force', {}, item)
           return {
             label = string.gsub(item.text, '^%s*', ''),
-            insertTextFormat = 2,
-            documentation = {
-              kind = 'markdown',
-              value = table.concat({ '```' .. vim.api.nvim_buf_get_option(0, 'filetype'), self:deindent(item.text), '```' }, '\n'),
-            },
             textEdit = {
               range = {
                 start = item.range.start,
-                ['end'] = item.range['end'],
+                ['end'] = params.context.cursor,
               },
-              newText = string.gsub(item.text, '%$', '\\$'),
-            }
+              newText = item.text,
+            },
+            documentation = {
+              kind = 'markdown',
+              value = table.concat({
+                '```' .. vim.api.nvim_buf_get_option(0, 'filetype'),
+                self:deindent(item.text),
+                '```'
+              }, '\n'),
+            },
           }
-        end, { vim.b._copilot_completion })
+        end, vim.g._copilot_last_completion.result.completions)
       })
     end
   end))
