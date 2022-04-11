@@ -6,54 +6,39 @@ source.new = function()
   }, { __index = source })
 end
 
-source.get_trigger_characters = function()
-  return { ' ' }
+source.get_keyword_pattern = function()
+  return '.'
 end
 
 source.complete = function(self, params, callback)
-  self.timer:stop()
-  self.timer:start(0, 200, vim.schedule_wrap(function()
-    local ready = true
-    ready = ready and vim.g._copilot_completion
-    ready = ready and vim.g._copilot_last_completion
-    ready = ready and vim.g._copilot_completion.id == vim.g._copilot_last_completion.id
-    ready = ready and vim.tbl_contains({ 'success', 'error' }, vim.g._copilot_last_completion.status)
-    ready = ready and vim.g._copilot_last_completion.result
-    ready = ready and vim.g._copilot_last_completion.result.completions
-    ready = ready and #vim.g._copilot_last_completion.result.completions > 0
-    if ready then
-      self.timer:stop()
-
-      if vim.g._copilot_last_completion.status == 'error' then
-        return callback({ isIncomplete = true })
-      end
-
-      callback({
-        isIncomplete = true,
-        items = vim.tbl_map(function(item)
-          item = vim.tbl_extend('force', {}, item)
-          return {
-            label = string.gsub(item.text, '^%s*', ''),
-            textEdit = {
-              range = {
-                start = item.range.start,
-                ['end'] = params.context.cursor,
-              },
-              newText = item.text,
-            },
-            documentation = {
-              kind = 'markdown',
-              value = table.concat({
-                '```' .. vim.api.nvim_buf_get_option(0, 'filetype'),
-                self:deindent(item.text),
-                '```'
-              }, '\n'),
-            },
+  vim.fn['copilot#Complete'](function(result)
+    callback({
+      isIncomplete = true,
+      items = vim.tbl_map(function(item)
+        local prefix = string.sub(params.context.cursor_before_line, item.range.start.character + 1, item.position.character)
+        return {
+          label = prefix .. item.displayText,
+          textEdit = {
+            range = item.range,
+            newText = item.text,
+          },
+          documentation = {
+            kind = 'markdown',
+            value = table.concat({
+              '```' .. vim.api.nvim_buf_get_option(0, 'filetype'),
+              self:deindent(item.text),
+              '```'
+            }, '\n'),
           }
-        end, vim.g._copilot_last_completion.result.completions)
-      })
-    end
-  end))
+        }
+      end, (result or {}).completions or {})
+    })
+  end, function()
+    callback({
+      isIncomplete = true,
+      items = {},
+    })
+  end)
 end
 
 source.deindent = function(_, text)
