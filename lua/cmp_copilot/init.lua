@@ -11,7 +11,7 @@ source.get_keyword_pattern = function()
 end
 
 source.is_available = function()
-  return vim.g.loaded_copilot == 1
+  return vim.g.loaded_copilot == 1 and vim.b.copilot_enabled ~= false
 end
 
 source.complete = function(self, params, callback)
