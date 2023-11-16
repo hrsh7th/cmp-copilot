@@ -22,6 +22,10 @@ source.complete = function(self, params, callback)
             range = item.range,
             newText = item.text,
           },
+          cmp = {
+              kind_hl_group = "CmpItemKindCopilot",
+              kind_text = 'Copilot',
+          },
           documentation = {
             kind = 'markdown',
             value = table.concat({
